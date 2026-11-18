@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>港南ビル KPI設計シミュレーター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 打ち合わせで画面共有する「合格ラインの物差し」。落ち着いた監査レポート調
+   IDEA: 入居者数を入れると「何人・何個なら福利厚生として十分か」が3段の物差しで出る
+   PICTURE: 合格ラインの月間個数を黄色スラブで大きく＋福利厚生利用率の目盛り上に3ラインを置いた物差し
+   COLOUR and TYPE: 白／墨 #101418／合格ラインだけ黄 #ffd84a。Manrope+Noto Sans JP
+   LAYOUT: 左に入力、右に結論。その下に3段の表、物差し、根拠、前提調整 */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#101418);--ink:light-dark(#101418,#eef1f4);--sub:light-dark(#5b6670,#9aa6b1);--line:light-dark(#e3e7eb,#2a323a);--panel:light-dark(#f5f7f9,#171d23);--y:#ffd84a;--ysoft:light-dark(#fff6cc,#3a3313);--warn:light-dark(#a86400,#ffc35a);--ok:light-dark(#0d7a4f,#4fd39a);--bar:light-dark(#b8c1c9,#47525c)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Manrope","Noto Sans JP",system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(22px,3.2vw,44px) max(5vw,16px);max-width:1240px;margin:0 auto}
+h1{font-size:clamp(26px,3.6vw,40px);line-height:1.15;margin:0 0 6px;text-wrap:balance;font-weight:800}
+h2{font-size:22px;margin:0 0 6px;font-weight:800}
+.sub{color:var(--sub);margin:0 0 14px;font-size:15px}
+.grid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px;margin-top:18px;align-items:start}
+@media(max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border-radius:14px;padding:20px}
+label{display:block;font-size:14px;font-weight:700;margin:12px 0 4px}
+label:first-child{margin-top:0}
+label small{font-weight:500;color:var(--sub)}
+input,select{width:100%;font:inherit;font-size:16px;padding:10px 12px;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+#n{font-size:28px;font-weight:800;min-height:56px}
+input:focus,select:focus,button:focus-visible{outline:3px solid var(--y);outline-offset:1px}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button{font:inherit;font-size:14px;font-weight:700;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;width:100%;margin-top:14px}
+.ans{font-size:clamp(20px,2.4vw,26px);font-weight:800;line-height:1.45;margin:0 0 14px;text-wrap:balance}
+.ans mark{background:var(--y);color:#101418;padding:0 6px;border-radius:6px}
+.hero{display:flex;flex-wrap:wrap;gap:12px}
+.slab{background:var(--y);color:#101418;border-radius:14px;padding:14px 20px}
+.slab b{display:block;font-size:clamp(44px,6vw,64px);line-height:1;font-weight:800;font-family:Manrope,sans-serif;white-space:nowrap}
+.slab span,.mini span{font-size:13px;font-weight:700}
+.mini{border:1px solid var(--line);border-radius:14px;padding:14px 18px}
+.mini b{display:block;font-size:30px;font-weight:800;line-height:1.1;white-space:nowrap}
+.mini span{color:var(--sub);font-weight:500}
+.fit{margin-top:12px;font-size:14px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:13px;color:var(--sub);font-weight:700}
+th.n,td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td.n b{font-size:18px}
+td.n small{display:block;color:var(--sub);font-size:12px}
+.sel{background:var(--ysoft)}
+th.sel{color:var(--ink)}
+.why{font-size:13px;color:var(--sub);display:block}
+.scroll{overflow-x:auto}
+.ruler{position:relative;height:250px;margin:6px 0 4px}
+.ruler svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.note{font-size:13px;color:var(--sub);margin-top:10px}
+ul.pts{margin:0;padding-left:1.2em}ul.pts li{margin:8px 0}
+details summary{cursor:pointer;font-weight:800;min-height:44px;display:flex;align-items:center}
+.th{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.th h3{grid-column:1/-1;font-size:15px;margin:12px 0 0}
+@media(max-width:600px){table{font-size:13px}td.n b{font-size:15px}}
+</style>
+</head>
+<body>
+<section class="band">
+  <h1>港南ビル 効果測定 KPI設計シミュレーター</h1>
+  <p class="sub">入居者数を入れると、「福利厚生として十分に使われている」と言える利用者数と購入個数の目安が出ます。物差しにしているのは、一般的な福利厚生制度の利用率です。初期設定は会社補助なし（従業員の全額自己負担）です。</p>
+
+  <div class="grid">
+    <form class="panel" id="f" autocomplete="off">
+      <label for="n">入居者数（人）</label>
+      <input id="n" type="number" min="1" value="200" inputmode="numeric">
+      <label for="plan">プラン <small>供給量との照らし合わせ用</small></label>
+      <select id="plan">
+        <option value="0">ライト（160〜220個／月）</option>
+        <option value="1" selected>スタンダード（240〜330個／月）</option>
+        <option value="2">プレミアム（320〜440個／月）</option>
+      </select>
+      <label>会社からの食事補助</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="sub">
+        <button type="button" data-s="0" class="on" style="margin-top:0">補助なし</button>
+        <button type="button" data-s="1" style="margin-top:0">補助あり</button>
+      </div>
+      <label for="days">月の営業日数 <small>1日あたりの計算用</small></label>
+      <input id="days" type="number" min="1" value="20" inputmode="numeric">
+      <button type="button" id="cp">合格ラインをテキストでコピー</button>
+      <p class="note" id="cpm"></p>
+    </form>
+
+    <div>
+      <p class="ans" id="ans">–</p>
+      <div class="hero">
+        <div class="slab"><b id="hq">–</b><span>合格ライン：2ヶ月目の月間購入個数</span></div>
+        <div class="mini"><b id="hd">–</b><span>1日あたり</span></div>
+        <div class="mini"><b id="hu">–</b><span>測定期間中に1回以上使った人</span></div>
+      </div>
+      <p class="fit" id="fit"></p>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <h2>3段階の目安（測定期間2ヶ月）</h2>
+  <p class="sub">黄色の「合格ライン」が、福利厚生として十分に使われていると説明できる水準です。</p>
+  <div class="scroll"><table>
+    <thead><tr><th>指標</th><th class="n">最低ライン</th><th class="n sel">合格ライン</th><th class="n">優良</th></tr></thead>
+    <tbody id="kpi"></tbody>
+  </table></div>
+</section>
+
+<section class="band">
+  <h2>福利厚生の利用率で見た位置づけ</h2>
+  <p class="sub">一般的な福利厚生制度の利用率を目盛りにして、ZERO BOXの3つのラインを置いています。</p>
+  <div class="ruler" id="ruler"><svg id="rs" role="img" aria-label="福利厚生の利用率の物差し"></svg></div>
+  <p class="note">出典：労働政策研究・研修機構（JILPT）調査シリーズNo.203「企業における福利厚生施策の実態に関する調査」をエデンレッド社が引用した数値。利用率が高い制度は食堂58.9%・食事手当53.4%・社員旅行47.3%・社内預金39.5%、低い制度は1.6〜3.1%。出典では利用率の分母や期間の定義が示されていないため、あくまで目安としての比較です。</p>
+</section>
+
+<section class="band">
+  <h2>数字の考え方（説明用）</h2>
+  <ul class="pts">
+    <li id="subnote"><b>今回は会社補助なし（従業員の全額自己負担）：</b>食堂（58.9%）や食事手当（53.4%）は会社が費用を出している制度なので、そのまま比べると厳しすぎます。補助なしの前提では、利用率が高い制度グループの下限（社内預金39.5%）の6割程度にあたる<b>25%を合格ライン</b>、上位グループに届く40%を優良にしています。</li>
+    <li><b>補助ありの場合：</b>利用率が高い制度グループの入口にあたる40%を合格ライン、社員食堂並みの55%以上を優良にしています。</li>
+    <li><b>月間購入個数：</b>2ヶ月目に実際に買う人（期間中に使った人の75%）×1人あたりの月間購入個数。ZEROの既存BOXの実績（月2〜4個）をもとに、補助なしの合格ラインは月3個、補助ありは月3.5個にしています。</li>
+    <li><b>入居者1人あたりの目安：</b>合格ラインは、補助なしで月0.5〜0.6個、補助ありで月1個前後です。</li>
+    <li><b>アンケート：</b>満足度（満足＋やや満足）70%以上、継続希望70%以上を合格の目安にして、利用の数字を補強します。</li>
+  </ul>
+  <details style="margin-top:14px">
+    <summary>前提の数値を調整する</summary>
+    <div class="th" id="th"></div>
+  </details>
+</section>
+
+<script>
+{
+const PLANS=[{nm:"ライト",lo:160,hi:220},{nm:"スタンダード",lo:240,hi:330},{nm:"プレミアム",lo:320,hi:440}];
+const LV=["最低ライン","合格ライン","優良"];
+const PRE=[{rate:[15,25,40],per:[2,3,3.5]},{rate:[25,40,55],per:[2.5,3.5,4]}];
+let sub=0;
+const A={rate:{nm:"測定期間中に使った人の割合（％）",v:[15,25,40]},act:{nm:"そのうち2ヶ月目に買う人（％）",v:[75,75,75]},per:{nm:"購入者1人あたり個数／月",v:[2,3,3.5]},sat:{nm:"満足度・継続希望（％）",v:[60,70,80]}};
+const BENCH=[["食堂",58.9],["食事手当",53.4],["社員旅行",47.3],["社内預金",39.5],["利用率が低い制度",3.1]];
+const $=id=>document.getElementById(id);
+const r1=v=>Math.round(v*10)/10;
+let L=[];
+
+function thInputs(){
+  $("th").innerHTML=Object.entries(A).map(([k,a])=>`<h3>${a.nm}</h3>`+a.v.map((v,i)=>`<div><label for="a_${k}_${i}">${LV[i]}</label><input id="a_${k}_${i}" type="number" step="0.1" value="${v}"></div>`).join("")).join("");
+  Object.entries(A).forEach(([k,a])=>a.v.forEach((_,i)=>$(`a_${k}_${i}`).addEventListener("input",e=>{a.v[i]=parseFloat(e.target.value)||0;calc()})));
+}
+function drawRuler(){
+  const s=$("rs"),W=s.clientWidth,H=s.clientHeight;if(!W)return;
+  const pad=W<520?14:24,x=v=>pad+(W-pad*2)*v/70,ax=H*.52,narrow=W<520;
+  let g=`<rect x="${pad}" y="${ax-6}" width="${W-pad*2}" height="12" rx="6" fill="var(--line)"/>`;
+  for(let t=0;t<=70;t+=10)g+=`<text x="${x(t)}" y="${ax+30}" font-size="12" text-anchor="middle" fill="var(--sub)">${t}%</text>`;
+  BENCH.forEach(([nm,v],i)=>{const X=x(v),y=ax+52+(i%2)*20;g+=`<line x1="${X}" x2="${X}" y1="${ax-6}" y2="${y-12}" stroke="var(--bar)" stroke-width="2"/><text x="${X}" y="${y}" font-size="12" text-anchor="middle" fill="var(--sub)">${narrow?"":nm+" "}${v}%</text>`});
+  L.forEach((l,i)=>{const X=x(Math.min(70,l.rate)),y=ax-26-(i===1?0:(i===0?24:48)),c=i===1?"#ffd84a":"var(--ink)";
+    g+=`<line x1="${X}" x2="${X}" y1="${y+4}" y2="${ax+6}" stroke="${c}" stroke-width="${i===1?5:3}"/><circle cx="${X}" cy="${ax}" r="${i===1?9:6}" fill="${c}" stroke="var(--bg)" stroke-width="2"/>`;
+    g+=`<text x="${X}" y="${y}" font-size="${i===1?15:13}" font-weight="800" text-anchor="${X>W*.8?"end":X<W*.2?"start":"middle"}" fill="var(--ink)">${LV[i]} ${r1(l.rate)}%</text>`});
+  s.innerHTML=g;
+}
+function calc(){
+  const n=Math.max(1,parseInt($("n").value)||1),pl=PLANS[+$("plan").value],days=Math.max(1,parseInt($("days").value)||20);
+  L=[0,1,2].map(i=>{const users=Math.round(n*A.rate.v[i]/100),mau=Math.round(users*A.act.v[i]/100),q=Math.round(mau*A.per.v[i]),q1=Math.round(q*.7);
+    return {users,mau,q,q1,tot:q1+q,rate:A.rate.v[i],perHead:q/n,day:q/days,sat:A.sat.v[i]}});
+  const p=L[1];
+  $("ans").innerHTML=`入居者${n}人なら、<mark>2ヶ月で${p.users}人以上が利用</mark>し、<mark>2ヶ月目に月${p.q}個以上</mark>売れていれば、福利厚生として十分に使われていると言えます。`;
+  $("hq").textContent=p.q.toLocaleString()+"個";
+  $("hd").textContent=r1(p.day)+"食";
+  $("hu").textContent=p.users+"人";
+  const fit=$("fit");
+  if(p.q>pl.hi){fit.style.color="var(--warn)";fit.textContent=`合格ラインの${p.q}個は${pl.nm}の供給上限（${pl.hi}個）を超えるので、上のプランが合います。`}
+  else if(p.q<pl.lo*.8){fit.style.color="var(--warn)";fit.textContent=`合格ラインの${p.q}個に対して、${pl.nm}の供給量（${pl.lo}〜${pl.hi}個）は多めです。下のプランも検討できます。`}
+  else{fit.style.color="var(--ok)";fit.textContent=`合格ラインの${p.q}個は、${pl.nm}の供給量（${pl.lo}〜${pl.hi}個）とおおむね合っています。`}
+  const rows=[
+    ["<b>利用者数</b>","測定期間中に1回以上買った人",l=>`<b>${l.users}人</b><small>入居者の${r1(l.rate)}%</small>`],
+    ["<b>月間購入個数</b>","2ヶ月目の1ヶ月間",l=>`<b>${l.q.toLocaleString()}個</b><small>入居者1人あたり${l.perHead.toFixed(2)}個</small>`],
+    ["1日あたりの販売数","月間購入個数 ÷ 営業日数",l=>`<b>${r1(l.day)}食</b>`],
+    ["2ヶ月目の購入者数","2ヶ月目に1回以上買った人",l=>`<b>${l.mau}人</b><small>入居者の${r1(l.mau/n*100)}%</small>`],
+    ["2ヶ月間の累計個数","1ヶ月目は2ヶ月目の7割の想定",l=>`<b>${l.tot.toLocaleString()}個</b><small>1ヶ月目 ${l.q1}個＋2ヶ月目 ${l.q}個</small>`],
+    ["アンケート","満足度・継続希望",l=>`<b>${l.sat}%以上</b>`]];
+  $("kpi").innerHTML=rows.map(([nm,why,f])=>`<tr><td>${nm}<span class="why">${why}</span></td>${L.map((l,i)=>`<td class="n${i===1?" sel":""}">${f(l)}</td>`).join("")}</tr>`).join("");
+  drawRuler();
+  try{localStorage.setItem("konanKpi2",JSON.stringify({n,plan:$("plan").value,days}))}catch(e){}
+  window._sum=[`【港南ビル 効果測定のKPI案】入居者${n}人／測定期間2ヶ月／会社補助${sub?"あり":"なし"}`,...L.map((l,i)=>`・${LV[i]}：利用者${l.users}人（${r1(l.rate)}%）／2ヶ月目の月間購入${l.q}個（1日${r1(l.day)}食・1人あたり${l.perHead.toFixed(2)}個）／アンケート満足度・継続希望${l.sat}%以上`),`※利用率の物差し：JILPT調査で利用率の高い福利厚生は約40〜60%（食堂58.9%、社内預金39.5%など）`].join("\n");
+}
+function setSub(s){sub=s;A.rate.v=[...PRE[s].rate];A.per.v=[...PRE[s].per];thInputs();document.querySelectorAll("#sub button").forEach(b=>b.classList.toggle("on",+b.dataset.s===s));$("subnote").style.display=s?"none":"block";calc()}
+$("sub").addEventListener("click",e=>{const b=e.target.closest("button");if(b)setSub(+b.dataset.s)});
+thInputs();
+try{const sv=JSON.parse(localStorage.getItem("konanKpi2")||"null");if(sv){$("n").value=sv.n;$("plan").value=sv.plan;$("days").value=sv.days}}catch(e){}
+["n","plan","days"].forEach(i=>$(i).addEventListener("input",calc));
+$("f").addEventListener("submit",e=>e.preventDefault());
+$("cp").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(window._sum);$("cpm").textContent="コピーしました"}catch(e){$("cpm").textContent="コピーできませんでした"}});
+new ResizeObserver(drawRuler).observe($("ruler"));
+calc();
+}
+</script>
+</body>
+</html>
